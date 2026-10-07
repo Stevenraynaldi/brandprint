@@ -85,7 +85,9 @@ img,svg{ max-width:100%; }
 .block{ background:var(--surface); border-radius:20px; padding:26px; margin-bottom:18px; }
 .block h3{ margin:0 0 4px; font-size:1.25rem; }
 .block .sub{ color:var(--muted); margin:0 0 18px; font-size:0.97rem; max-width:62ch; }
-.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+#out{ container-type:inline-size; }
+.grid2{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; }
+@container (max-width: 720px){ .grid2{ grid-template-columns:minmax(0,1fr); } }
 .grid2 .block{ margin-bottom:0; }
 .grid2 + .block, .grid2 + .grid2{ margin-top:18px; }
 .sliders{ display:grid; gap:16px; }
@@ -146,9 +148,9 @@ img,svg{ max-width:100%; }
 .mini .tl{ font-size:.8rem; opacity:.85; }
 .tune .reset{ margin-top:20px; width:100%; }
 .linkbtn{ background:none; border:none; padding:0; text-decoration:underline; text-underline-offset:3px; color:var(--ink); font-weight:600; margin-top:14px; }
-.site-foot{ max-width:1040px; margin:0 auto; padding:20px 20px 36px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px 24px; font-size:.92rem; color:var(--muted); }
-.site-foot a{ color:var(--ink); font-weight:600; text-underline-offset:3px; }
-.site-foot span{ margin-right:auto; }
+.site-foot{ max-width:1040px; margin:0 auto; padding:12px 20px 32px; text-align:center; font-size:.8rem; color:var(--muted); opacity:.75; }
+.site-foot a{ color:inherit; text-underline-offset:3px; }
+.site-foot a:hover{ color:var(--ink); }
 @media (max-width: 820px){
   .res-layout{ grid-template-columns:1fr; }
   .tune{ position:static; max-height:none; }
@@ -221,9 +223,7 @@ img,svg{ max-width:100%; }
   <section id="results" class="hidden" aria-live="polite"></section>
 </main>
 <footer class="site-foot">
-  <span>Made by Steven</span>
-  <a href="https://stevenraynaldili.com" target="_blank" rel="noopener">stevenraynaldili.com</a>
-  <a id="quizLink" target="_blank" rel="noopener">Take the Brandprint quiz</a>
+  Interested in more prototypes or fun projects? Check out my portfolio at <a href="https://stevenraynaldili.com" target="_blank" rel="noopener">stevenraynaldili.com</a>
 </footer>
 <div class="toast" id="toast" role="status"></div>
 
@@ -598,8 +598,9 @@ $('startBtn').addEventListener('click', ()=>{
 $('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('startBtn').click(); });
 
 /* ===== Results ===== */
-function chipsHTML(list, label){
-  return list.map((hex,i)=>`<button type="button" class="${i===2?'core':''}" style="background:${hex};color:${textOn(hex)}" data-hex="${hex}" aria-label="Copy ${hex}">
+// the ring marks the shade currently used in "Your brand in use" (the middle one unless the person picked another)
+function chipsHTML(list, label, role, sel){
+  return list.map((hex,i)=>`<button type="button" class="${hex===sel?'core':''}" style="background:${hex};color:${textOn(hex)}" data-hex="${hex}" data-role="${role}" aria-pressed="${hex===sel}" aria-label="Use ${hex} in your brand preview and copy it">
     ${i===2?`<span>${label}</span>`:''}<span class="k">${hex}</span></button>`).join('');
 }
 /* everything on the results page comes from R, so it can be edited live */
@@ -625,6 +626,9 @@ function current(){
   if(R.dispAuto) R.disp = pk.disp[0].n;
   if(R.bodyAuto) R.body = pk.body.n;
   const p = paletteFrom(R.h, R.sat, R.l, R.h2, R.s2, R.l2, R.famName);
+  // shades picked from the chips; ignored if the colours have since been tuned away from them
+  p.useMain = p.mainChips.includes(R.mainPick) ? R.mainPick : p.main;
+  p.useSec  = p.secChips.includes(R.secPick)   ? R.secPick  : p.sec;
   const D = {...fontBy(R.disp), why:(DISPLAY.find(d=>d.n===R.disp)||{}).why};
   const B = fontBy(R.body);
   return { p, D, B, V:pk.vib[0], V2:pk.vib[1], alts:pk.disp.filter(f=>f.n!==R.disp).slice(0,3) };
@@ -635,7 +639,7 @@ function renderOut(){
   const name = escapeHTML(userName || 'Your Name');
   document.documentElement.style.setProperty('--you', p.main);
   document.documentElement.style.setProperty('--you2', p.sec);
-  const mainOn = textOn(p.main);
+  const mainOn = textOn(p.useMain);
   const gap = Math.abs(((R.h2 - R.h)%360+540)%360-180);
   const accTxt = gap>110 ? 'a contrasting accent that adds energy' : gap<70 ? 'a close neighbour of your main colour, so the two sit together' : 'a balanced partner for your main colour';
 
@@ -653,13 +657,13 @@ function renderOut(){
         <h3>Main colour</h3>
         <p class="sub">${p.famName ? `${p.famName}, tuned to be ${satWord(p.sat)}.` : `${cap(satWord(p.sat))} ${hueName(p.h)}.`} Use this for your name, buttons and anything people should notice first.</p>
         <div class="spectrum" style="background:${p.mainGrad}"></div>
-        <div class="chips">${chipsHTML(p.mainChips,'Core')}</div>
+        <div class="chips">${chipsHTML(p.mainChips,'Core','main',p.useMain)}</div>
       </div>
       <div class="block">
         <h3>Secondary colour</h3>
         <p class="sub">${cap(hueName(p.h2))}, ${accTxt}. Use it for highlights, backgrounds and details.</p>
         <div class="spectrum" style="background:${p.secGrad}"></div>
-        <div class="chips">${chipsHTML(p.secChips,'Core')}</div>
+        <div class="chips">${chipsHTML(p.secChips,'Core','sec',p.useSec)}</div>
       </div>
     </div>
     <div class="block" style="margin-top:18px">
@@ -687,8 +691,8 @@ function renderOut(){
       <h3>Your brand in use</h3>
       <p class="sub">A quick test drive. Adjust anything on the right until it feels like you.</p>
       <div class="preview">
-        <div class="bcard" style="background:${p.main};color:${mainOn}">
-          <div class="bar" style="background:${p.sec}"></div>
+        <div class="bcard" style="background:${p.useMain};color:${mainOn}">
+          <div class="bar" style="background:${p.useSec}"></div>
           <div>
             <div class="nm" style="font-family:${D.css};font-weight:${D.w}">${name}</div>
             <div class="tl" style="font-family:${B.css}">${V.k.join(' / ')}</div>
@@ -696,9 +700,9 @@ function renderOut(){
         </div>
         <div class="banner" style="background:${p.neutral};color:#1D2330">
           <svg class="shape" viewBox="0 0 200 200" aria-hidden="true">${R.axes.form>0
-            ? `<path d="M40 110c-10-40 30-80 75-70s60 40 45 80-60 50-90 35-25-20-30-45z" fill="${p.sec}"/>`
-            : `<rect x="40" y="40" width="120" height="120" fill="${p.sec}" transform="rotate(${R.axes.tone>0?12:0} 100 100)"/>`}</svg>
-          <div class="big" style="font-family:${D.css};font-weight:${D.w};color:${p.main}">${V.tag}</div>
+            ? `<path d="${BLOB}" fill="${p.useSec}"/>`
+            : `<rect x="40" y="40" width="120" height="120" fill="${p.useSec}" transform="rotate(${R.axes.tone>0?12:0} 100 100)"/>`}</svg>
+          <div class="big" style="font-family:${D.css};font-weight:${D.w};color:${p.useMain}">${V.tag}</div>
           <div class="small" style="font-family:${B.css}">${name}</div>
         </div>
       </div>
@@ -710,7 +714,11 @@ function renderOut(){
       <button class="btn ghost" id="retakeBtn">Retake the quiz</button>
     </div>`;
 
-  $('out').querySelectorAll('.chips button').forEach(b=>b.addEventListener('click',()=>copy(b.dataset.hex, `Copied ${b.dataset.hex}`)));
+  $('out').querySelectorAll('.chips button').forEach(b=>b.addEventListener('click',()=>{
+    R[b.dataset.role==='main' ? 'mainPick' : 'secPick'] = b.dataset.hex;
+    renderOut();
+    copy(b.dataset.hex, `Using ${b.dataset.hex} in your brand preview. Hex copied.`);
+  }));
   $('out').querySelectorAll('.alt').forEach(b=>b.addEventListener('click',()=>{ R.disp=b.dataset.font; R.dispAuto=false; syncTune(); renderOut(); }));
   $('toTune').addEventListener('click', ()=>{ $('tune').scrollIntoView({behavior:'smooth', block:'start'}); $('tune').querySelector('input,select,button')?.focus({preventScroll:true}); });
   $('copyBtn').addEventListener('click', ()=> copy(resultText(), 'Results copied as text'));
@@ -725,11 +733,11 @@ function renderOut(){
   paintTracks();
 }
 const cap = t => t[0].toUpperCase()+t.slice(1);
+const BLOB = 'M40 110c-10-40 30-80 75-70s60 40 45 80-60 50-90 35-25-20-30-45z';   // organic shape used in the banner
 
 /* ===== Sharing ===== */
-const QUIZ_URL = 'https://claude.ai/artifact/2FoEvCh6BRYkDQcwEGpMgL';   // swap for your own domain later
+const QUIZ_URL = 'https://brandprint-neon.vercel.app/';
 const SITE_URL = 'https://stevenraynaldili.com';
-$('quizLink').href = QUIZ_URL;
 
 function resultText(){
   const { p, D, B, V, V2 } = current();
@@ -753,13 +761,23 @@ async function makeImage(){
     document.fonts.load(`${D.w} 90px ${D.css}`), document.fonts.load(`400 40px ${B.css}`),
     document.fonts.load(`600 32px "Instrument Sans"`), document.fonts.load(`400 32px "Instrument Sans"`)
   ]); }catch(e){}
-  const W=1080, H=1350, c=document.createElement('canvas'); c.width=W; c.height=H;
-  const x=c.getContext('2d'), ui='"Instrument Sans", Arial, sans-serif', ink='#1D2330', muted='#5B6476';
+  // follow the person's light or dark mode
+  const theme = document.documentElement.dataset.theme;
+  const dark = theme==='dark' || (theme!=='light' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  const bg = dark ? '#13161C' : p.neutral, card = dark ? '#1C2029' : '#FFFFFF';
+  const W=1080, H=1700, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d'), ui='"Instrument Sans", Arial, sans-serif', ink=dark?'#E8EAF0':'#1D2330', muted=dark?'#A0A8B8':'#5B6476';
   const font=(w,sz,fam)=>{ x.font=`${w} ${sz}px ${fam}`; };
   const rr=(X,Y,w,h,r,fill)=>{ x.beginPath(); x.roundRect ? x.roundRect(X,Y,w,h,r) : x.rect(X,Y,w,h); x.fillStyle=fill; x.fill(); };
   function fit(text, max, w, size, fam){ let sz=size; font(w,sz,fam); while(x.measureText(text).width>max && sz>28){ sz-=4; font(w,sz,fam); } return sz; }
 
-  x.fillStyle=p.neutral; x.fillRect(0,0,W,H);
+  function wrapText(text, max){
+    const words=text.split(' '), out=[]; let line='';
+    words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>max && line){ out.push(line); line=w; } else line=t; });
+    if(line) out.push(line); return out;
+  }
+  function fitText(text, max){ while(x.measureText(text).width>max && text.length>4) text=text.slice(0,-2); return text; }
+  x.fillStyle=bg; x.fillRect(0,0,W,H);
   // hero block in the main colour
   rr(60,60,W-120,470,36,p.main);
   const on=textOn(p.main);
@@ -788,7 +806,7 @@ async function makeImage(){
   // fonts
   const fy=1070;
   x.fillStyle=ink; font(600,32,ui); x.fillText('Fonts',60,fy);
-  rr(60,fy+24,(W-134)/2,140,20,'#FFFFFF'); rr(74+(W-134)/2,fy+24,(W-134)/2,140,20,'#FFFFFF');
+  rr(60,fy+24,(W-134)/2,140,20,card); rr(74+(W-134)/2,fy+24,(W-134)/2,140,20,card);
   x.fillStyle=p.main; font(D.w,84,D.css); x.fillText('Aa',90,fy+130);
   x.fillStyle=muted; font(400,24,ui); x.fillText('Headlines',230,fy+80);
   x.fillStyle=ink; fit(D.n,(W-134)/2-190,600,30,ui); x.fillText(D.n,230,fy+122);
@@ -797,9 +815,32 @@ async function makeImage(){
   x.fillStyle=muted; font(400,24,ui); x.fillText('Body text',bx+170,fy+80);
   x.fillStyle=ink; fit(B.n,(W-134)/2-190,600,30,ui); x.fillText(B.n,bx+170,fy+122);
 
+  // brand in use: business card and banner, as on the results page
+  const uy=1300, uh=230, cw=400, bw=W-120-cw-14, bx2=60+cw+14;
+  x.fillStyle=ink; font(600,32,ui); x.fillText('Brand in use',60,uy);
+  const uMain=p.useMain, uSec=p.useSec, Y0=uy+24;
+  rr(60,Y0,cw,uh,22,uMain);
+  rr(60+28,Y0+28,52,8,4,uSec);
+  x.fillStyle=textOn(uMain); x.textBaseline='alphabetic';
+  fit(name, cw-56, D.w, 52, D.css); x.fillText(name, 60+28, Y0+uh-72);
+  font(400,22,B.css); x.globalAlpha=.85; x.fillText(fitText(V.k.join(' / '), cw-56), 60+28, Y0+uh-30); x.globalAlpha=1;
+  // banner
+  rr(bx2,Y0,bw,uh,22,p.neutral);
+  x.save(); x.beginPath(); x.roundRect ? x.roundRect(bx2,Y0,bw,uh,22) : x.rect(bx2,Y0,bw,uh); x.clip();
+  x.translate(bx2+bw-100, Y0-50); x.scale(.75,.75);
+  x.fillStyle=uSec;
+  if(R.axes.form>0) x.fill(new Path2D(BLOB));
+  else { x.translate(100,100); x.rotate((R.axes.tone>0?12:0)*Math.PI/180); x.fillRect(-60,-60,120,120); }
+  x.restore();
+  x.fillStyle=uMain; x.textBaseline='alphabetic';
+  const tsz=40; font(D.w,tsz,D.css);
+  const lines=wrapText(V.tag, bw-200); lines.slice(0,3).forEach((ln,i)=>x.fillText(ln, bx2+30, Y0+80+i*tsz*1.12));
+  x.fillStyle='#1D2330'; font(400,24,B.css); x.fillText(name, bx2+30, Y0+uh-30);
+
   // footer
-  x.fillStyle=muted; font(400,24,ui); x.fillText('Find yours with the Brandprint quiz', 60, H-62);
-  x.fillStyle=ink; font(600,24,ui); const site='stevenraynaldili.com'; x.fillText(site, W-60-x.measureText(site).width, H-62);
+  x.fillStyle=muted; font(400,24,ui); x.fillText('Find yours at', 60, H-62);
+  const lead=x.measureText('Find yours at ').width;
+  x.fillStyle=ink; font(600,24,ui); x.fillText(QUIZ_URL.replace(/^https?:\/\//,'').replace(/\/$/,''), 60+lead, H-62);
 
   return await new Promise(res=>c.toBlob(res,'image/png'));
 }
